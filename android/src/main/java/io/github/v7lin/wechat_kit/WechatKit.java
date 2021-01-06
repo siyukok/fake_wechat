@@ -536,20 +536,17 @@ public class WechatKit implements MethodChannel.MethodCallHandler, PluginRegistr
         // ...
         if (checkVersionValid() && checkAndroidNotBelowN()) {
             File file = new File(filePath);
-            String contentPath = getFileUri(context, file);
 
             // 使用contentPath作为文件路径进行分享
-            return contentPath;
+            return getFileUri(context, file);
         }
         return filePath;
     }
-​
 
     // 判断微信版本是否为7.0.13及以上
     private boolean checkVersionValid() {
         return iwxapi.getWXAppSupportAPI() >= 0x27000D00;
     }
-​
 
     // 判断Android版本是否7.0及以上
     private boolean checkAndroidNotBelowN() {
@@ -560,16 +557,10 @@ public class WechatKit implements MethodChannel.MethodCallHandler, PluginRegistr
         if (file == null || !file.exists()) {
             return null;
         }
-
-        Uri contentUri = FileProvider.getUriForFile(context,
-                "com.hervillageclub.UNIBE4FC9A.fileprovider",  // 要与`AndroidManifest.xml`里配置的`authorities`一致，假设你的应用包名为com.example.app
-                file);
-
+        Uri contentUri = FileProvider.getUriForFile(context, "com.hervillageclub.UNIBE4FC9A.fileprovider", file);
         // 授权给微信访问路径
-        context.grantUriPermission("com.tencent.mm",  // 这里填微信包名
-                contentUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-
-        return contentUri.toString();   // contentUri.toString() 即是以"content://"开头的用于共享的路径
+        context.grantUriPermission("com.tencent.mm", contentUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        return contentUri.toString();
     }
 
 }
