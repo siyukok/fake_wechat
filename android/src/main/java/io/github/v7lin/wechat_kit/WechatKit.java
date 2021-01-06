@@ -7,6 +7,7 @@ import android.net.Uri;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.content.FileProvider;
 
 import com.tencent.mm.opensdk.constants.Build;
 import com.tencent.mm.opensdk.diffdev.DiffDevOAuthFactory;
@@ -38,6 +39,7 @@ import com.tencent.mm.opensdk.openapi.IWXAPI;
 import com.tencent.mm.opensdk.openapi.IWXAPIEventHandler;
 import com.tencent.mm.opensdk.openapi.WXAPIFactory;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -196,14 +198,14 @@ public class WechatKit implements MethodChannel.MethodCallHandler, PluginRegistr
         @Override
         public void onReq(BaseReq req) {
             //获取开放标签传递的extinfo数据逻辑
-            if(req.getType() == ConstantsAPI.COMMAND_SHOWMESSAGE_FROM_WX && req instanceof ShowMessageFromWX.Req) {
+            if (req.getType() == ConstantsAPI.COMMAND_SHOWMESSAGE_FROM_WX && req instanceof ShowMessageFromWX.Req) {
                 ShowMessageFromWX.Req showReq = (ShowMessageFromWX.Req) req;
                 WXMediaMessage mediaMsg = showReq.message;
                 String extInfo = mediaMsg.messageExt;
                 Map<String, Object> map = new HashMap<>();
-                map.put(ARGUMENT_KEY_LAUNCH_EXTINFO,extInfo);
-                if (channel!=null){
-                    channel.invokeMethod(METHOD_ONLAUNCHRESP,map);
+                map.put(ARGUMENT_KEY_LAUNCH_EXTINFO, extInfo);
+                if (channel != null) {
+                    channel.invokeMethod(METHOD_ONLAUNCHRESP, map);
                 }
             }
         }
@@ -424,7 +426,7 @@ public class WechatKit implements MethodChannel.MethodCallHandler, PluginRegistr
                 object.imageData = call.argument(ARGUMENT_KEY_IMAGEDATA);
             } else if (call.hasArgument(ARGUMENT_KEY_IMAGEURI)) {
                 String imageUri = call.argument(ARGUMENT_KEY_IMAGEURI);
-                object.imagePath = Uri.parse(imageUri).getPath();
+                object.imagePath = shareToWechatPath(applicationContext, Uri.parse(imageUri).getPath());
             }
             message.mediaObject = object;
         } else if (METHOD_SHAREFILE.equals(call.method)) {
@@ -529,4 +531,45 @@ public class WechatKit implements MethodChannel.MethodCallHandler, PluginRegistr
         qrauth.removeAllListeners();
         return false;
     }
+
+    private String shareToWechatPath(Context context, String filePath) {
+        // ...
+        if (checkVersionValid() && checkAndroidNotBelowN()) {
+            File file = new File(filePath);
+            String contentPath = getFileUri(context, file);
+
+            // 使用contentPath作为文件路径进行分享
+            return contentPath;
+        }
+        return filePath;
+    }
+​
+
+    // 判断微信版本是否为7.0.13及以上
+    private boolean checkVersionValid() {
+        return iwxapi.getWXAppSupportAPI() >= 0x27000D00;
+    }
+​
+
+    // 判断Android版本是否7.0及以上
+    private boolean checkAndroidNotBelowN() {
+        return android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.N;
+    }
+
+    public String getFileUri(Context context, File file) {
+        if (file == null || !file.exists()) {
+            return null;
+        }
+
+        Uri contentUri = FileProvider.getUriForFile(context,
+                "com.hervillageclub.UNIBE4FC9A.fileprovider",  // 要与`AndroidManifest.xml`里配置的`authorities`一致，假设你的应用包名为com.example.app
+                file);
+
+        // 授权给微信访问路径
+        context.grantUriPermission("com.tencent.mm",  // 这里填微信包名
+                contentUri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+
+        return contentUri.toString();   // contentUri.toString() 即是以"content://"开头的用于共享的路径
+    }
+
 }
